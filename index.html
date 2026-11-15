@@ -196,7 +196,7 @@
             </div>
 
             <p class="font-heading italic text-lg sm:text-xl md:text-2xl font-bold tracking-wide text-ink-muted text-center mt-2">
-                ~ The Personalized Daily Digest with AI Bias Notes ~
+                ~ The Personalized Daily Digest with Tone & Bias Notes ~
             </p>
 
             <!-- Sub-Banner Rule -->
@@ -252,7 +252,7 @@
             <div class="single-border-all p-4 bg-parchment-card/70">
                 <h3 class="font-heading font-extrabold uppercase text-base border-b border-ink pb-1 mb-2">About NewsLens</h3>
                 <p class="text-xs leading-relaxed text-justify">
-                    NewsLens is an automated daily digest. Stories are pulled from public news feeds and tagged for tone by a classifier trained on hand-labelled headlines. With Smart Mode on, a language model running in your own browser finds related stories and ranks the page by what you read.
+                    NewsLens is an automated daily digest. Stories are pulled from public news feeds and tagged for tone. With Smart Mode on, a language model running in your own browser finds related stories and ranks the page by what you read.
                 </p>
             </div>
 
@@ -372,7 +372,7 @@
                 <div>
                     <label class="block font-bold mb-1">Scheduled Morning Run Time:</label>
                     <input type="time" id="set-time" value="06:00" class="bg-parchment-card border border-ink p-2 w-full font-mono">
-                    <p class="mt-1 text-[10px] text-ink-muted normal-case">In the browser, a fresh edition is printed on your first visit each day. A true 6 AM run comes from the Django job.</p>
+                    <p class="mt-1 text-[10px] text-ink-muted normal-case">A fresh edition is printed automatically on your first visit each day.</p>
                 </div>
 
                 <div>
@@ -401,7 +401,7 @@
         /* =====================================================================
            CONFIG: where each section gets its daily news
            Feeds are read through rss2json (free, no API key, CORS-friendly).
-           In your Django version, the same list becomes the server-side fetch job.
+           If a feed stops working, swap its address in this list.
            ===================================================================== */
         const RSS2JSON = 'https://api.rss2json.com/v1/api.json?rss_url=';
         const gnews = (q) => 'https://news.google.com/rss/search?q=' + encodeURIComponent(q) + '&hl=en-IN&gl=IN&ceid=IN:en';
@@ -656,7 +656,7 @@
         }
 
         /* =====================================================================
-           Tone & bias notes (keyword rules; replace with your AI call in Django)
+           Tone & bias notes (keyword rules, or the trained model if tone_model.json is present)
            ===================================================================== */
         const LEX = {
             EMOTIONAL: ['shock', 'devastat', 'heartbreak', 'terrif', 'alarm', 'panic', 'outrag', 'furious', 'fury', 'chaos', 'nightmare', 'tragic', 'horrif', 'stagger', 'plunge', 'explosive', 'dramatic', 'stun'],
@@ -1009,7 +1009,7 @@
                         ${settings.strictness === 'off' ? '' : `
                         <div class="bg-ink text-parchment p-2.5 my-3 font-mono text-[11px] single-border-all">
                             <div class="flex items-center justify-between font-bold border-b border-parchment/30 pb-1 mb-1">
-                                <span>AI BIAS NOTES</span>
+                                <span>TONE & BIAS NOTES</span>
                                 <span class="bg-parchment text-ink px-1 text-[10px]">${tone.fromModel ? 'ML MODEL' : 'AUTO-TAGGED'}</span>
                             </div>
                             <div class="tracking-wide"><strong>TONE:</strong> [${esc(tone.cat)}]${tone.conf != null ? ' ' + Math.round(tone.conf * 100) + '% sure' : ''}</div>
@@ -1060,7 +1060,7 @@
 
                 ${settings.strictness === 'off' ? '' : `
                 <div class="my-4 bg-ink text-parchment p-3 font-mono text-xs">
-                    <span class="font-bold block border-b border-parchment/30 pb-1 mb-1">AI TONE & BIAS EVALUATION</span>
+                    <span class="font-bold block border-b border-parchment/30 pb-1 mb-1">TONE & BIAS EVALUATION</span>
                     <div>CLASSIFICATION: [${esc(tone.cat)}]${tone.conf != null ? ' (' + Math.round(tone.conf * 100) + '% confidence' + (tone.conf < 0.5 ? ', low' : '') + ')' : ''}</div>
                     <div class="text-parchment/80 mt-1">${esc(tone.desc)}</div>
                     ${tone.flagged.length ? `<div class="text-parchment/80 mt-1">${tone.fromModel ? 'Words behind this label' : 'Loaded wording'}: ${tone.flagged.map(esc).join(', ')}</div>` : ''}
