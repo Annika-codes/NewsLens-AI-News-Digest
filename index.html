@@ -1,0 +1,1221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NewsLens - Personalized Daily Digest</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: blackletter masthead, Playfair headlines, Old Standard body, typewriter dispatches -->
+    <link href="https://fonts.googleapis.com/css2?family=IM+Fell+English+SC&family=Playfair+Display:ital,wght@0,600;0,800;0,900;1,600;1,800&family=Old+Standard+TT:ital,wght@0,400;0,700;1,400&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        parchment: '#EADBB3',
+                        'parchment-dark': '#D9C48F',
+                        'parchment-card': '#EEE0BA',
+                        ink: '#1D150E',
+                        'ink-muted': '#3B2F23',
+                    },
+                    fontFamily: {
+                        heading: ['"Playfair Display"', 'serif'],
+                        body: ['"Old Standard TT"', 'Georgia', 'serif'],
+                        mono: ['"Courier Prime"', 'monospace'],
+                        black: ['UnifrakturCook', '"Old English Text MT"', '"Playfair Display"', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        :root {
+            --noise: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .32 0 0 0 0 .22 0 0 0 0 .08 0 0 0 .22 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+        }
+
+        /* The desk the paper lies on */
+        body {
+            background-color: #3A2A1B;
+            background-image: var(--noise), radial-gradient(ellipse at center, #4a3722 0%, #24180d 100%);
+            background-attachment: fixed;
+            color: #1D150E;
+            text-shadow: 0 0 0.5px rgba(29, 21, 14, 0.5); /* ink bleed */
+            font-family: "Old Standard TT", Georgia, serif;
+        }
+        .bg-ink, .bg-ink * { text-shadow: none; }
+
+        /* The aged sheet of newsprint */
+        .sheet {
+            position: relative;
+            background-color: #E9D9AE;
+            background-image:
+                radial-gradient(circle at 92% 7%, transparent 0 46px, rgba(110, 60, 15, .20) 48px, rgba(110, 60, 15, .08) 56px, transparent 64px),
+                radial-gradient(circle at 10% 20%, rgba(150, 100, 30, .16), transparent 38%),
+                radial-gradient(circle at 88% 72%, rgba(120, 80, 20, .18), transparent 42%),
+                radial-gradient(circle at 40% 95%, rgba(130, 90, 30, .14), transparent 40%),
+                var(--noise);
+            box-shadow:
+                inset 0 0 90px rgba(110, 70, 20, .50),
+                inset 0 0 14px rgba(80, 50, 10, .55),
+                0 20px 60px rgba(0, 0, 0, .6);
+        }
+        /* Fold creases */
+        .sheet::before {
+            content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 3px;
+            background: linear-gradient(90deg, rgba(60,35,10,.14), rgba(255,255,255,.22) 55%, transparent);
+            pointer-events: none; z-index: 5;
+        }
+        .sheet::after {
+            content: ''; position: absolute; left: 0; right: 0; top: 40%; height: 3px;
+            background: linear-gradient(180deg, rgba(60,35,10,.12), rgba(255,255,255,.20) 55%, transparent);
+            pointer-events: none; z-index: 5;
+        }
+
+        /* Typography */
+        p, li, label { hyphens: auto; }
+        .masthead-title {
+            /* Other antique options on Google Fonts: 'UnifrakturCook' (blackletter), 'Pirata One', 'IM Fell DW Pica', 'Old Standard TT' */
+            font-family: 'IM Fell English SC', 'Old Standard TT', Georgia, serif;
+            font-size: clamp(3.2rem, 11.5vw, 8rem);
+            line-height: 1;
+            letter-spacing: .04em;
+            -webkit-text-stroke: .7px #1D150E;   /* thickens the strokes like heavy letterpress ink */
+            text-shadow: 1px 1px 0 rgba(29,21,14,.25), 0 0 1.5px rgba(29,21,14,.8);
+        }
+        .headline {
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            text-transform: uppercase;
+            line-height: 1.08;
+            letter-spacing: -.005em;
+        }
+        .dropcap::first-letter {
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            float: left;
+            font-size: 3.6em;
+            line-height: .82;
+            padding: .06em .1em 0 0;
+        }
+        .ear {
+            border: 1px solid #1D150E;
+            padding: .5rem .6rem;
+            text-align: center;
+            font-family: 'Courier Prime', monospace;
+            font-size: .68rem;
+            line-height: 1.35;
+            text-transform: uppercase;
+            background: rgba(255, 245, 210, .25);
+        }
+        @media (min-width: 768px) {
+            .lead-columns { column-count: 2; column-gap: 1.6rem; column-rule: 1px solid #1D150E; }
+        }
+
+        /* Rules and borders */
+        .double-border-bottom { border-bottom: 4px double #1D150E; }
+        .double-border-top { border-top: 4px double #1D150E; }
+        .double-border-all { border: 4px double #1D150E; }
+        .single-border-all { border: 1px solid #1D150E; }
+        .triple-rule { border-top: 3px solid #1D150E; border-bottom: 1px solid #1D150E; height: 7px; }
+
+        /* Engraved illustrations and aged photographs */
+        .woodcut-img {
+            filter: grayscale(100%) contrast(160%) brightness(95%);
+            mix-blend-mode: multiply;
+        }
+        .old-photo {
+            filter: grayscale(1) sepia(.55) contrast(1.4) brightness(.9);
+            mix-blend-mode: multiply;
+        }
+        .halftone { position: relative; }
+        .halftone::after {
+            content: ''; position: absolute; inset: 0; pointer-events: none;
+            background-image: radial-gradient(rgba(29,21,14,.55) .7px, transparent .9px);
+            background-size: 4px 4px;
+            mix-blend-mode: multiply;
+            opacity: .45;
+        }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #D9C48F; }
+        ::-webkit-scrollbar-thumb { background: #1D150E; }
+
+        /* Button press effect */
+        .retro-btn {
+            transition: all 0.15s ease-in-out;
+            box-shadow: 2px 2px 0px #1D150E;
+        }
+        .retro-btn:hover { transform: translate(-1px, -1px); box-shadow: 3px 3px 0px #1D150E; }
+        .retro-btn:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0px #1D150E; }
+
+        button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
+            outline: 2px dashed #1D150E; outline-offset: 2px;
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .retro-btn { transition: none; }
+        }
+        .ribbon-banner { background: #EEE0BA; position: relative; }
+    </style>
+</head>
+<body class="font-body selection:bg-ink selection:text-parchment">
+
+<div class="sheet max-w-7xl mx-auto p-3 sm:p-6 md:p-8 sm:my-6 min-h-screen flex flex-col justify-between">
+
+    <div>
+    <!-- Top Notice Bar -->
+    <header class="w-full mb-4">
+        <div class="flex flex-col sm:flex-row justify-between items-center text-xs font-mono uppercase border-b border-ink pb-1 mb-2 tracking-wider gap-2">
+            <div class="flex items-center gap-2">
+                <span class="font-bold">Edition:</span> Daily Briefing
+                <span class="mx-1">•</span>
+                <span id="masthead-date">Wednesday, October 14, 2026</span>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="masthead-vol">VOL. XLVIII, NO. 287</span>
+                <span>•</span>
+                <span>User: <strong class="underline">Editor_In_Chief</strong></span>
+            </div>
+        </div>
+
+        <!-- Main Masthead Box -->
+        <div class="double-border-all p-4 sm:p-6 bg-parchment-card relative overflow-hidden">
+            <div class="text-center text-xs font-mono uppercase tracking-[0.3em] text-ink-muted mb-2">AI-Curated Chronicle of Current News & Technical Progress</div>
+
+            <div class="md:grid md:grid-cols-[1fr_auto_1fr] md:items-center md:gap-5">
+                <div class="ear hidden md:block">
+                    <strong>The Weather</strong><br>
+                    Fair skies, with scattered breaking news by evening
+                </div>
+                <h1 class="masthead-title text-center text-ink my-1">NewsLens</h1>
+                <div class="ear hidden md:block">
+                    <strong>Our Motto</strong><br>
+                    All the tech that's fit to print
+                </div>
+            </div>
+
+            <p class="font-heading italic text-lg sm:text-xl md:text-2xl font-bold tracking-wide text-ink-muted text-center mt-2">
+                ~ The Personalized Daily Digest with Tone & Bias Notes ~
+            </p>
+
+            <!-- Sub-Banner Rule -->
+            <div class="double-border-top mt-4 pt-2 flex flex-wrap justify-between items-center text-xs font-mono font-bold uppercase gap-2">
+                <span>PRICE: COMPLIMENTARY</span>
+                <span class="hidden md:inline">★ SPECIAL AI-POWERED EDITION ★</span>
+                <span class="text-right">LOCATION: GLOBAL WIRES</span>
+            </div>
+        </div>
+        <div class="triple-rule mt-2"></div>
+    </header>
+
+    <!-- Toolbar / Control Ribbon -->
+    <section class="mb-6 double-border-bottom pb-4">
+        <div class="flex flex-wrap items-center justify-between gap-4 bg-parchment-dark/70 p-3 single-border-all">
+            <!-- Topic Filter Pills (built by JavaScript from your active topics) -->
+            <div id="topic-pills" class="flex flex-wrap items-center gap-2"></div>
+
+            <!-- Action Buttons -->
+            <div class="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-end">
+                <button id="btn-smart" onclick="toggleSmart()" title="Loads a small language model in your browser (about 25 MB, saved after the first time)" class="retro-btn bg-parchment-card border border-ink px-3 py-1.5 text-xs font-bold font-mono uppercase">✦ Smart Mode: Off</button>
+                <button id="btn-foryou" onclick="toggleForYou()" title="Ranks dispatches by what you have read before" class="retro-btn bg-parchment-card border border-ink px-3 py-1.5 text-xs font-bold font-mono uppercase opacity-50">For You: Off</button>
+                <button onclick="triggerDigestRefresh()" class="retro-btn bg-parchment-card hover:bg-parchment border border-ink px-3 py-1.5 text-xs font-bold font-mono uppercase flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                    Run Daily Job
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Main Broadsheet Front Page -->
+    <main class="flex-grow mb-8">
+
+        <!-- Status Banner -->
+        <div id="status-alert" class="hidden mb-6 p-3 bg-ink text-parchment font-mono text-xs flex justify-between items-center border border-ink">
+            <span id="status-text">▶ Running daily job: Pulling fresh wires & tagging tone...</span>
+            <button onclick="hideStatus()" class="text-parchment font-bold hover:underline ml-3 shrink-0">Dismiss [X]</button>
+        </div>
+
+        <!-- Lead Headline + Grid -->
+        <div id="articles-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 border-t-2 border-l border-ink">
+            <!-- Dynamic JavaScript injection target -->
+        </div>
+
+    </main>
+    </div>
+
+    <!-- Broadsheet Footer & Quick Access Navigation -->
+    <footer class="double-border-top pt-6 mt-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-6 text-sm">
+
+            <!-- Column 1: About -->
+            <div class="single-border-all p-4 bg-parchment-card/70">
+                <h3 class="font-heading font-extrabold uppercase text-base border-b border-ink pb-1 mb-2">About NewsLens</h3>
+                <p class="text-xs leading-relaxed text-justify">
+                    NewsLens is an automated daily digest. Stories are pulled from public news feeds and tagged for tone. With Smart Mode on, a language model running in your own browser finds related stories and ranks the page by what you read.
+                </p>
+            </div>
+
+            <!-- Column 2: Quick Links -->
+            <div class="single-border-all p-4 bg-parchment-card/70">
+                <h3 class="font-heading font-extrabold uppercase text-base border-b border-ink pb-1 mb-2">Sections & Nav</h3>
+                <ul class="text-xs font-mono space-y-1.5">
+                    <li><button onclick="openModal('topics-modal')" class="hover:underline flex items-center gap-1">⚙ Manage My Topics</button></li>
+                    <li><button onclick="openModal('history-modal')" class="hover:underline flex items-center gap-1">📖 Read History Log (<span id="history-count-link">0</span>)</button></li>
+                    <li><button onclick="openModal('settings-modal')" class="hover:underline flex items-center gap-1">🛠 Daily Job Settings</button></li>
+                    <li><button onclick="triggerDigestRefresh()" class="hover:underline flex items-center gap-1">⚡ Force Refresh Digest</button></li>
+                </ul>
+            </div>
+
+            <!-- Column 3: Read Stats -->
+            <div class="single-border-all p-4 bg-parchment-card/70">
+                <h3 class="font-heading font-extrabold uppercase text-base border-b border-ink pb-1 mb-2">Reader Ledger</h3>
+                <div class="space-y-2 font-mono text-xs">
+                    <div class="flex justify-between">
+                        <span>Articles Read:</span>
+                        <strong id="stat-read-count">0</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Active Topics:</span>
+                        <strong id="stat-topic-count">5</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Scheduled Job:</span>
+                        <strong id="stat-job">Daily, auto</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Last Press Run:</span>
+                        <strong id="stat-lastrun">--</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Tone Engine:</span>
+                        <strong id="stat-engine">Keyword rules</strong>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Smart Mode:</span>
+                        <strong id="stat-smart">Off</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Column 4: Copyright / Colophon -->
+            <div class="single-border-all p-4 bg-parchment-card/70 flex flex-col justify-between">
+                <div>
+                    <h3 class="font-heading font-extrabold uppercase text-base border-b border-ink pb-1 mb-2">Colophon</h3>
+                    <p class="text-xs italic leading-tight">
+                        Printed electronically from live public news wires, with a small machine-learning press run on your own device.
+                    </p>
+                </div>
+                <div class="text-[10px] font-mono text-ink-muted mt-3">
+                    NEWSLENS DIGEST &copy; 2026
+                </div>
+            </div>
+
+        </div>
+
+        <div class="text-center font-mono text-xs py-3 border-t border-ink text-ink-muted">
+            ❦ END OF TODAY'S EDITION • PRESS 'R' TO REFRESH FEEDS ❦
+        </div>
+    </footer>
+</div>
+
+    <!-- ==================== MODALS & DRAWERS ==================== -->
+
+    <!-- Article Detail Modal -->
+    <div id="article-modal" class="fixed inset-0 bg-ink/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-parchment double-border-all max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 relative shadow-2xl">
+            <button onclick="closeModal('article-modal')" class="absolute top-4 right-4 font-mono font-bold text-sm bg-ink text-parchment px-2 py-1 border border-ink hover:bg-parchment hover:text-ink transition-colors">
+                CLOSE [X]
+            </button>
+            <div id="modal-article-content"></div>
+        </div>
+    </div>
+
+    <!-- Topics Modal -->
+    <div id="topics-modal" class="fixed inset-0 bg-ink/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-parchment double-border-all max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 relative shadow-2xl">
+            <button onclick="closeModal('topics-modal')" class="absolute top-4 right-4 font-mono font-bold text-sm bg-ink text-parchment px-2 py-1 border border-ink hover:bg-parchment hover:text-ink">
+                CLOSE [X]
+            </button>
+            <h2 class="font-heading font-extrabold text-2xl uppercase border-b-2 border-ink pb-2 mb-4 pr-24">Manage My Topics</h2>
+            <p class="text-xs mb-4">Select topics you wish the automated worker to pull headlines for during the daily morning digest run.</p>
+
+            <div class="space-y-3 font-mono text-xs" id="topics-checklist"></div>
+
+            <div class="mt-6 pt-4 border-t border-ink flex justify-between items-center gap-2">
+                <input type="text" id="new-topic-input" placeholder="Add custom topic (e.g., Energy)..." class="bg-parchment-card border border-ink p-2 text-xs font-mono w-2/3 focus:outline-none">
+                <button onclick="addNewTopic()" class="retro-btn bg-ink text-parchment border border-ink px-3 py-2 text-xs font-mono uppercase font-bold">Add Topic</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History Modal -->
+    <div id="history-modal" class="fixed inset-0 bg-ink/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-parchment double-border-all max-w-xl w-full max-h-[80vh] overflow-y-auto p-6 relative shadow-2xl">
+            <button onclick="closeModal('history-modal')" class="absolute top-4 right-4 font-mono font-bold text-sm bg-ink text-parchment px-2 py-1 border border-ink hover:bg-parchment hover:text-ink">
+                CLOSE [X]
+            </button>
+            <h2 class="font-heading font-extrabold text-2xl uppercase border-b-2 border-ink pb-2 mb-4 pr-24">Read History Ledger</h2>
+            <div id="history-list-content" class="space-y-3 font-mono text-xs"></div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-ink/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-parchment double-border-all max-w-md w-full max-h-[90vh] overflow-y-auto p-6 relative shadow-2xl">
+            <button onclick="closeModal('settings-modal')" class="absolute top-4 right-4 font-mono font-bold text-sm bg-ink text-parchment px-2 py-1 border border-ink hover:bg-parchment hover:text-ink">
+                CLOSE [X]
+            </button>
+            <h2 class="font-heading font-extrabold text-2xl uppercase border-b-2 border-ink pb-2 mb-4 pr-24">Digest & AI Settings</h2>
+
+            <div class="space-y-4 font-mono text-xs">
+                <div>
+                    <label class="block font-bold mb-1">Scheduled Morning Run Time:</label>
+                    <input type="time" id="set-time" value="06:00" class="bg-parchment-card border border-ink p-2 w-full font-mono">
+                    <p class="mt-1 text-[10px] text-ink-muted normal-case">A fresh edition is printed automatically on your first visit each day.</p>
+                </div>
+
+                <div>
+                    <label class="block font-bold mb-1">Tone Analysis Strictness:</label>
+                    <select id="set-strict" class="bg-parchment-card border border-ink p-2 w-full font-mono">
+                        <option value="balanced">Balanced / Standard Analysis</option>
+                        <option value="strict">Strict Bias Flagging</option>
+                        <option value="off">Summary Only (No Tone Notes)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block font-bold mb-1">Articles Per Category:</label>
+                    <input type="number" id="set-count" value="3" min="1" max="8" class="bg-parchment-card border border-ink p-2 w-full font-mono">
+                </div>
+
+                <div class="pt-2">
+                    <button onclick="saveSettings()" class="retro-btn bg-ink text-parchment w-full py-2 font-bold uppercase">Save Configuration</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Data & Logic -->
+    <script>
+        /* =====================================================================
+           CONFIG: where each section gets its daily news
+           Feeds are read through rss2json (free, no API key, CORS-friendly).
+           If a feed stops working, swap its address in this list.
+           ===================================================================== */
+        const RSS2JSON = 'https://api.rss2json.com/v1/api.json?rss_url=';
+        const gnews = (q) => 'https://news.google.com/rss/search?q=' + encodeURIComponent(q) + '&hl=en-IN&gl=IN&ceid=IN:en';
+
+        const SECTIONS = {
+            "Tech": { svg: 'server', feeds: [
+                'https://feeds.arstechnica.com/arstechnica/technology-lab',
+                'https://www.theverge.com/rss/index.xml',
+                'https://techcrunch.com/feed/'
+            ]},
+            "AI": { svg: 'chip', feeds: [
+                'https://techcrunch.com/category/artificial-intelligence/feed/',
+                'https://www.technologyreview.com/topic/artificial-intelligence/feed',
+                'https://venturebeat.com/category/ai/feed/'
+            ]},
+            "Machine Learning": { svg: 'neural', feeds: [
+                'https://huggingface.co/blog/feed.xml',
+                'https://research.google/blog/rss/',
+                'https://bair.berkeley.edu/blog/feed.xml',
+                gnews('machine learning research')
+            ]},
+            "Career Opportunities": { svg: 'briefcase', feeds: [
+                'https://weworkremotely.com/categories/remote-programming-jobs.rss',
+                'https://remotive.com/remote-jobs/feed/software-dev',
+                gnews('AI ML engineer internship OR hiring OR fresher jobs India')
+            ]},
+            "Top Stories": { svg: 'globe', feeds: [
+                'https://feeds.bbci.co.uk/news/world/rss.xml',
+                'https://www.thehindu.com/news/national/feeder/default.rss'
+            ]}
+        };
+        const DEFAULT_TOPICS = Object.keys(SECTIONS).map(name => ({ name, active: true }));
+        const MAX_POOL = 8;      // dispatches kept per section
+        const FRESH_DAYS = 14;   // ignore wires older than this when enough fresher ones exist
+
+        /* ---------- tiny storage helper (works on file:// too) ---------- */
+        const LS = {
+            get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+            set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+        };
+
+        /* ---------- State ---------- */
+        let topicsList = LS.get('newslens:topics', DEFAULT_TOPICS);
+        let settings   = Object.assign({ perTopic: 3, strictness: 'balanced', time: '06:00', smart: false }, LS.get('newslens:settings', {}));
+        let readIds    = LS.get('newslens:read', {});
+        let edition    = LS.get('newslens:edition', null);   // { date, pool: {topic:[items]}, fetchedAt }
+        let articles   = [];
+        let activeTopic = 'All';
+        let usingSample = false;
+        let loading = false;
+
+        /* ---------- Offline sample edition (shown only if every wire fails) ---------- */
+        const SAMPLE_ARTICLES = [
+            { id: 1, topic: "Tech", title: "REVOLUTION IN COMPUTING: QUANTUM SUPREMACY ACHIEVED BY GOOGLE LABS", subtitle: "Sample dispatch: breakthrough expected to accelerate AI development",
+              summary: "Researchers have demonstrated quantum algorithms solving ultra-complex processing tasks in minutes, calculations that would take conventional supercomputers thousands of years.",
+              fullText: "In a groundbreaking publication, computational scientists detailed how their 128-qubit architecture performed a task far exceeding classical capabilities. Industry leaders anticipate integration into public cloud networks within the decade, though security specialists warn that current encryption protocols must adapt rapidly.",
+              toneCategory: "ANALYTICAL", toneDesc: "Balanced, Fact-Based, Technical Focus", svgType: "chip" },
+            { id: 2, topic: "AI", title: "NEXT-GEN CONVERSATIONAL AI MODEL STUNS EXPERTS WITH REASONING", subtitle: "Sample dispatch: improved contextual logic and creative capacity unveiled",
+              summary: "The newest frontier AI model demonstrates strides in formal logic, multi-step problem solving, and low-latency interaction, alongside stringent safety guardrails.",
+              fullText: "The release introduces enhanced reasoning capabilities capable of writing code, executing mathematical proofs, and composing nuanced literature. Benchmark evaluations show a reduction in factual hallucination compared to prior generations.",
+              toneCategory: "ENTHUSIASTIC", toneDesc: "Positive, Forward-Looking, Tech-Optimistic", svgType: "server" },
+            { id: 3, topic: "Machine Learning", title: "SMALLER MODELS, SMARTER RESULTS: RESEARCHERS TRIM THE FAT FROM NEURAL NETS", subtitle: "Sample dispatch: efficiency takes the front seat in model research",
+              summary: "A new wave of research focuses on compressing large models so they run on laptops and phones without a steep loss in accuracy.",
+              fullText: "Techniques such as quantization, distillation and pruning are moving from the lab into everyday tooling, letting small teams deploy capable models without a data-centre budget.",
+              toneCategory: "NEUTRAL", toneDesc: "Fact-Based, Technical Reportage", svgType: "neural" },
+            { id: 4, topic: "Career Opportunities", title: "ENTRY-LEVEL ENGINEERING DESKS OPEN FOR AI AND SOFTWARE GRADUATES", subtitle: "Sample dispatch: portfolios weigh heavier than pedigree",
+              summary: "Hiring managers say working projects and clear write-ups now carry as much weight as marks, with internships the surest door into AI and software roles.",
+              fullText: "Recruiters point to deployed projects, open-source contributions and short technical write-ups as the strongest signals for early-career applicants.",
+              toneCategory: "ANALYTICAL", toneDesc: "Informative, Multi-Perspective Overview", svgType: "briefcase" },
+            { id: 5, topic: "Top Stories", title: "SILICON VALLEY REPORT: TECH GIANTS FACE RENEWED ANTITRUST SCRUTINY", subtitle: "Sample dispatch: legislators propose stricter frameworks",
+              summary: "Global regulators have opened sweeping investigations into algorithmic curation and data dominance. Advocates argue for open access, while corporate leaders warn that heavy oversight could stifle innovation.",
+              fullText: "Committees convened to deliberate proposed legislation aimed at unbundling proprietary AI search engines and hardware ecosystems.",
+              toneCategory: "CRITICAL", toneDesc: "Opinionated, Regulatory Warning, Skeptical", svgType: "capitol" }
+        ].map(a => Object.assign({ source: 'Sample Wire', link: '', date: Date.now(), image: '' }, a));
+
+        /* =====================================================================
+           Helpers
+           ===================================================================== */
+        function esc(s) {
+            return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        }
+        function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : ''; }
+        function hashStr(s) { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return Math.abs(h); }
+        function toRoman(n) {
+            const m = [[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']]; let r = '';
+            for (const [v, s] of m) while (n >= v) { r += s; n -= v; }
+            return r;
+        }
+        function todayKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+        function fmtShort(ts) { return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+        function ago(ts) {
+            const m = Math.max(1, Math.round((Date.now() - ts) / 60000));
+            if (m < 60) return m + ' min ago';
+            const h = Math.round(m / 60); if (h < 24) return h + ' hr ago';
+            const d = Math.round(h / 24); return d + ' day' + (d > 1 ? 's' : '') + ' ago';
+        }
+
+        function stampMasthead() {
+            const now = new Date();
+            document.getElementById('masthead-date').textContent = now.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const doy = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 864e5);
+            document.getElementById('masthead-vol').textContent = 'VOL. ' + toRoman(Math.max(1, now.getFullYear() - 1978)) + ', NO. ' + doy;
+        }
+
+        /* =====================================================================
+           Fetching today's news
+           ===================================================================== */
+        function cleanText(html) {
+            if (!html) return '';
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            let t = (doc.body.textContent || '').replace(/\s+/g, ' ').trim();
+            t = t.replace(/The post .* appeared first on .*$/i, '').replace(/(Continue reading|Read more)[^.]*$/i, '').trim();
+            return t;
+        }
+        function firstImage(html) {
+            if (!html) return '';
+            const m = /<img[^>]+src=["']([^"']+)["']/i.exec(html);
+            return m ? m[1] : '';
+        }
+        function shorten(text, max) {
+            if (text.length <= max) return text;
+            const cut = text.slice(0, max);
+            const i = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('; '));
+            return i > max * 0.5 ? cut.slice(0, i + 1) : cut.replace(/\s+\S*$/, '') + '…';
+        }
+
+        function normalizeItem(it, feedTitle) {
+            let title = cleanText(it.title);
+            let source = cleanText(feedTitle || '') || 'Wire Service';
+            // Google News headlines arrive as "Headline - Publisher"
+            const gi = title.lastIndexOf(' - ');
+            if (gi > 20 && /news\.google\./i.test(it.link || it.guid || '')) { source = title.slice(gi + 3); title = title.slice(0, gi); }
+            const rawHtml = (it.content && it.content.length > (it.description || '').length) ? it.content : (it.description || '');
+            let text = cleanText(rawHtml);
+            const thin = text.length < 50 || text.toLowerCase().startsWith(title.toLowerCase().slice(0, 40));
+            const summary = thin ? 'The wire carried only the headline. Open the original dispatch for the full report.' : shorten(text, 260);
+            const fullText = thin || text.length <= summary.length + 20 ? '' : shorten(text, 900);
+            const ts = it.pubDate ? Date.parse(String(it.pubDate).replace(' ', 'T') + 'Z') : Date.now();
+            const image = it.thumbnail || (it.enclosure && it.enclosure.link && /image/i.test(it.enclosure.type || 'image') ? it.enclosure.link : '') || firstImage(rawHtml);
+            return {
+                id: hashStr(it.link || title),
+                title, source, summary, fullText, thin,
+                link: safeUrl(it.link || it.guid),
+                image: safeUrl(image),
+                date: isNaN(ts) ? Date.now() : ts
+            };
+        }
+
+        async function fetchFeed(url) {
+            const ctl = new AbortController();
+            const timer = setTimeout(() => ctl.abort(), 12000);
+            try {
+                const r = await fetch(RSS2JSON + encodeURIComponent(url), { signal: ctl.signal });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const j = await r.json();
+                if (j.status !== 'ok') throw new Error('Feed error');
+                return (j.items || []).map(it => normalizeItem(it, j.feed && j.feed.title));
+            } finally { clearTimeout(timer); }
+        }
+
+        async function fetchTopic(name) {
+            const cfg = SECTIONS[name];
+            const feeds = cfg ? cfg.feeds : [gnews(name)];     // custom topics search Google News
+            const svg = cfg ? cfg.svg : 'press';
+            const settled = await Promise.allSettled(feeds.map(fetchFeed));
+            const cutoff = Date.now() - FRESH_DAYS * 864e5;
+            const lists = settled.filter(s => s.status === 'fulfilled').map(s => {
+                const sorted = s.value.slice().sort((a, b) => b.date - a.date);
+                const fresh = sorted.filter(i => i.date >= cutoff);
+                return fresh.length ? fresh : sorted.slice(0, 2);
+            });
+            // Round-robin across feeds so one source doesn't take the whole section
+            const merged = [], seen = new Set();
+            for (let i = 0; merged.length < MAX_POOL && lists.some(l => i < l.length); i++) {
+                for (const l of lists) {
+                    const it = l[i]; if (!it) continue;
+                    const key = (it.link || '') + '|' + it.title.toLowerCase().slice(0, 50);
+                    if (seen.has(key) || seen.has(it.title.toLowerCase())) continue;
+                    seen.add(key); seen.add(it.title.toLowerCase());
+                    merged.push(Object.assign(it, { svgType: svg }));
+                    if (merged.length >= MAX_POOL) break;
+                }
+            }
+            return merged;
+        }
+
+        async function loadEdition(force = false) {
+            if (loading) return;
+            loading = true;
+            const today = todayKey();
+            const active = topicsList.filter(t => t.active).map(t => t.name);
+            if (!edition || edition.date !== today) edition = { date: today, pool: {}, fetchedAt: null };   // a new day starts a new edition
+
+            const missing = force ? active : active.filter(n => !(edition.pool[n] && edition.pool[n].length));
+            if (missing.length) {
+                showStatus('▶ Running daily job: Pulling fresh wires & tagging tone...');
+                if (!articles.length) renderLoading();
+                const results = await Promise.all(missing.map(n => fetchTopic(n).catch(() => [])));
+                let got = 0;
+                missing.forEach((n, i) => { if (results[i].length) { edition.pool[n] = results[i]; got++; } });
+                if (got) { edition.fetchedAt = Date.now(); LS.set('newslens:edition', edition); }
+                usingSample = active.every(n => !(edition.pool[n] && edition.pool[n].length));
+                if (usingSample) showStatus('⚠ Could not reach the wire services. Showing sample dispatches. Check your connection, then press R to try again.');
+                else if (got < missing.length) showStatus('✓ Edition printed. ' + (missing.length - got) + ' section(s) had no fresh wires; press R to retry.');
+                else showStatus('✓ Today\'s edition is printed. Fresh dispatches loaded.');
+            } else {
+                usingSample = active.length > 0 && active.every(n => !(edition.pool[n] && edition.pool[n].length));
+            }
+            loading = false;
+            renderPills();
+            renderArticles();
+            if (smartOn) startSmart(false);      // embed any new stories in the background
+        }
+
+        function decorate(it, topic) {
+            return Object.assign({}, it, { topic, subtitle: 'Dispatched by ' + it.source + ', ' + fmtShort(it.date) + ' (' + ago(it.date) + ')' });
+        }
+        function allPoolItems() {
+            const out = [];
+            if (!edition) return out;
+            topicsList.filter(t => t.active).forEach(t => (edition.pool[t.name] || []).forEach(it => out.push(decorate(it, t.name))));
+            return out;
+        }
+
+        function buildArticles() {
+            if (usingSample) return SAMPLE_ARTICLES.slice();
+
+            // "For You": pick from the whole pool, best taste match first (needs Smart Mode and 3+ reads)
+            if (sortMode === 'foryou' && smartOn && profileVec) {
+                const all = allPoolItems().filter(a => embCache[a.id]);
+                if (all.length) {
+                    const total = topicsList.filter(t => t.active).length * settings.perTopic;
+                    all.forEach(a => { a.score = dot(embCache[a.id], profileVec); });
+                    all.sort((p, q) => ((isRead(p) ? 1 : 0) - (isRead(q) ? 1 : 0)) || (q.score - p.score));
+                    const top = all.slice(0, total);
+                    const unread = top.filter(a => !isRead(a));
+                    unread.forEach((a, i) => { a.stars = i < unread.length / 3 ? 3 : (i < 2 * unread.length / 3 ? 2 : 1); });
+                    return top;
+                }
+            }
+
+            const list = [];
+            topicsList.filter(t => t.active).forEach(t => {
+                ((edition && edition.pool[t.name]) || []).slice(0, settings.perTopic).forEach(it => list.push(decorate(it, t.name)));
+            });
+            if (list.length > 1) {                       // freshest story leads the front page
+                let lead = 0;
+                list.forEach((a, i) => { if (a.date > list[lead].date) lead = i; });
+                list.unshift(list.splice(lead, 1)[0]);
+            }
+            return list;
+        }
+
+        /* =====================================================================
+           Tone & bias notes (keyword rules, or the trained model if tone_model.json is present)
+           ===================================================================== */
+        const LEX = {
+            EMOTIONAL: ['shock', 'devastat', 'heartbreak', 'terrif', 'alarm', 'panic', 'outrag', 'furious', 'fury', 'chaos', 'nightmare', 'tragic', 'horrif', 'stagger', 'plunge', 'explosive', 'dramatic', 'stun'],
+            ENTHUSIASTIC: ['breakthrough', 'revolution', 'game-chang', 'groundbreak', 'unprecedented', 'incredible', 'amazing', 'remarkable', 'milestone', 'boom', 'transform', 'powerful', 'exciting', 'promising', 'soar'],
+            CRITICAL: ['slam', 'blast', 'fail', 'scandal', 'lawsuit', 'sues', 'sued', 'banned', 'crackdown', 'warns', 'warning', 'threat', 'backlash', 'critic', 'controvers', 'accus', 'probe', 'layoff', 'breach', 'hack', 'flaw', 'antitrust'],
+            OPINIONATED: ['should', 'must', 'opinion', 'editorial', 'why ', 'hype', 'myth', 'overrated', 'mistake', 'wrong', 'worst', 'we need', 'you need', 'i think', 'argue', 'column'],
+            ANALYTICAL: ['study', 'report', 'research', 'data', 'analysis', 'survey', 'percent', '%', 'benchmark', 'according to', 'paper', 'findings', 'published']
+        };
+        const TONE_DESC = {
+            NEUTRAL: 'Plain, fact-based reporting with little loaded wording',
+            ANALYTICAL: 'Leans on data, studies and reports; measured tone',
+            EMOTIONAL: 'Charged wording that appeals to feeling over fact',
+            ENTHUSIASTIC: 'Positive, hype-leaning; stresses upside and breakthroughs',
+            CRITICAL: 'Negative or adversarial framing; stresses problems and conflict',
+            OPINIONATED: 'Argues a position; reads like commentary, not reporting'
+        };
+        function hits(text, stems) {
+            const t = ' ' + text.toLowerCase() + ' ';
+            return stems.filter(s => (s.length <= 3 || s.startsWith('why')) ? t.includes(' ' + s) : t.includes(s));
+        }
+        function getTone(a) {
+            if (a.toneCategory) return { cat: a.toneCategory, desc: a.toneDesc, flagged: [] };
+            if (toneModel) {                                     // trained classifier if tone_model.json is present
+                let t = toneCache.get(a.id);
+                if (!t) { t = modelTone(a); toneCache.set(a.id, t); }
+                return t;
+            }
+            const text = a.title + (a.thin ? '' : ' ' + a.summary);   // ignore the placeholder line on headline-only wires
+            const need = settings.strictness === 'strict' ? 1 : 2;
+            let best = null, max = 0, bestHits = [];
+            ['EMOTIONAL', 'CRITICAL', 'ENTHUSIASTIC', 'OPINIONATED'].forEach(k => {
+                const h = hits(text, LEX[k]);
+                if (h.length > max) { max = h.length; best = k; bestHits = h; }
+            });
+            if (best && max >= need) return { cat: best, desc: TONE_DESC[best], flagged: bestHits.slice(0, 4).map(s => s.trim()) };
+            if (hits(text, LEX.ANALYTICAL).length) return { cat: 'ANALYTICAL', desc: TONE_DESC.ANALYTICAL, flagged: [] };
+            return { cat: 'NEUTRAL', desc: TONE_DESC.NEUTRAL, flagged: [] };
+        }
+
+
+        /* =====================================================================
+           MACHINE LEARNING, part 1: your own trained tone classifier
+           ml/train_tone.py exports tone_model.json (TF-IDF + logistic regression).
+           This runs the same maths in the browser. No file = keyword rules.
+           ===================================================================== */
+        let toneModel = null;
+        const toneCache = new Map();
+
+        async function loadToneModel() {
+            try {
+                const r = await fetch('tone_model.json', { cache: 'no-cache' });
+                if (!r.ok) throw new Error('HTTP ' + r.status);
+                const m = await r.json();
+                if (!m.classes || !m.vocab || !m.idf || !m.coef || !m.intercept) throw new Error('bad model file');
+                m.index = new Map(m.vocab.map((t, i) => [t, i]));
+                toneModel = m;
+            } catch (e) { toneModel = null; }
+            toneCache.clear();
+        }
+
+        // Must match the tokenizer used in training: lowercase, runs of 2+ letters/digits, plus word pairs
+        function tokenize(text) {
+            const toks = text.toLowerCase().match(/[a-z0-9]{2,}/g) || [];
+            const terms = toks.slice();
+            for (let i = 0; i < toks.length - 1; i++) terms.push(toks[i] + ' ' + toks[i + 1]);
+            return terms;
+        }
+
+        function modelTone(a) {
+            const m = toneModel;
+            const text = a.title + (a.thin ? '' : ' ' + a.summary);
+            const counts = new Map();
+            tokenize(text).forEach(t => { const i = m.index.get(t); if (i !== undefined) counts.set(i, (counts.get(i) || 0) + 1); });
+            if (!counts.size) return { cat: 'NEUTRAL', desc: TONE_DESC.NEUTRAL || '', flagged: [], conf: null, fromModel: true };
+
+            const x = []; let norm = 0;
+            counts.forEach((c, i) => { const v = (m.sublinear ? 1 + Math.log(c) : c) * m.idf[i]; x.push([i, v]); norm += v * v; });
+            norm = Math.sqrt(norm) || 1;
+
+            const K = m.classes.length, logits = new Array(K);
+            for (let k = 0; k < K; k++) {
+                let s = m.intercept[k];
+                for (const [i, v] of x) s += m.coef[k][i] * (v / norm);
+                logits[k] = s;
+            }
+            const mx = Math.max(...logits), ex = logits.map(l => Math.exp(l - mx)), z = ex.reduce((p, q) => p + q, 0);
+            const probs = ex.map(e => e / z);
+            let best = 0; probs.forEach((p, k) => { if (p > probs[best]) best = k; });
+
+            // "Strict" setting: call it non-neutral when a non-neutral class is reasonably likely
+            if (settings.strictness === 'strict' && m.classes[best].toUpperCase() === 'NEUTRAL') {
+                let alt = -1; probs.forEach((p, k) => { if (k !== best && (alt < 0 || p > probs[alt])) alt = k; });
+                if (alt >= 0 && probs[alt] >= 0.30) best = alt;
+            }
+            const cat = m.classes[best].toUpperCase();
+            const words = x.map(([i, v]) => ({ term: m.vocab[i], w: m.coef[best][i] * (v / norm) }))
+                .filter(o => o.w > 0).sort((p, q) => q.w - p.w).slice(0, 3).map(o => o.term);
+            return { cat, desc: TONE_DESC[cat] || '', flagged: cat === 'NEUTRAL' ? [] : words, conf: probs[best], fromModel: true };
+        }
+
+        /* =====================================================================
+           MACHINE LEARNING, part 2: embeddings (Smart Mode)
+           A small language model (MiniLM) runs in the browser through transformers.js.
+           Each story becomes a 384-number vector; similar stories sit close together.
+           Used for "Related dispatches" and the "For You" ranking.
+           ===================================================================== */
+        let smartOn = settings.smart === true;
+        let sortMode = LS.get('newslens:sort', 'section');
+        let embedder = null, embedLoading = null;
+        let embCache = LS.get('newslens:emb', {});            // article id -> vector
+        let profileStore = LS.get('newslens:profile', []);    // [{id, t, v}] stories you read
+        let profileVec = null;
+
+        function dot(a, b) { let s = 0; for (let i = 0; i < a.length; i++) s += a[i] * b[i]; return s; }
+        function embedTextOf(a) { return a.title + (a.thin ? '' : '. ' + a.summary); }
+
+        async function getEmbedder() {
+            if (embedder) return embedder;
+            if (!embedLoading) {
+                embedLoading = (async () => {
+                    showStatus('✦ Smart Mode: downloading the language model (about 25 MB, saved for next time)...');
+                    const mod = await import('https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.2');
+                    mod.env.allowLocalModels = false;
+                    const ex = await mod.pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2', {
+                        progress_callback: (d) => { if (d && d.status === 'progress' && typeof d.progress === 'number') showStatus('✦ Smart Mode: downloading the language model... ' + Math.round(d.progress) + '%'); }
+                    });
+                    embedder = ex;
+                    return ex;
+                })().catch(err => { embedLoading = null; throw err; });
+            }
+            return embedLoading;
+        }
+
+        async function embedMissing(items) {
+            const need = items.filter(a => !embCache[a.id]);
+            if (!need.length) return;
+            const ex = await getEmbedder();
+            for (let i = 0; i < need.length; i += 8) {
+                const batch = need.slice(i, i + 8);
+                const out = await ex(batch.map(embedTextOf), { pooling: 'mean', normalize: true });
+                const dim = out.dims[1];
+                batch.forEach((a, j) => { embCache[a.id] = Array.from(out.data.slice(j * dim, (j + 1) * dim), v => Math.round(v * 1000) / 1000); });
+                await new Promise(r => setTimeout(r, 0));     // let the page breathe
+            }
+            saveEmb();
+        }
+
+        function saveEmb() {
+            const keep = new Set(allPoolItems().map(a => String(a.id)));
+            Object.keys(embCache).forEach(k => { if (!keep.has(k)) delete embCache[k]; });
+            LS.set('newslens:emb', embCache);
+        }
+
+        // Your taste = a weighted average of the vectors of stories you read (newer reads count more)
+        function rebuildProfile() {
+            profileVec = null;
+            const n = profileStore.length;
+            if (n < 3) return;
+            const dim = profileStore[0].v.length, acc = new Array(dim).fill(0);
+            profileStore.forEach((p, i) => { const w = Math.pow(0.97, n - 1 - i); for (let d = 0; d < dim; d++) acc[d] += w * p.v[d]; });
+            const norm = Math.sqrt(acc.reduce((s, x) => s + x * x, 0)) || 1;
+            profileVec = acc.map(x => x / norm);
+        }
+
+        function syncProfile() {
+            const have = new Map(profileStore.map(p => [p.id, p]));
+            allPoolItems().forEach(a => { if (readIds[a.id] && embCache[a.id] && !have.has(a.id)) have.set(a.id, { id: a.id, t: 0, v: embCache[a.id] }); });
+            profileStore = [...have.values()].filter(p => readIds[p.id]).map(p => Object.assign(p, { t: Number(readIds[p.id]) || 0 })).sort((p, q) => p.t - q.t).slice(-200);
+            LS.set('newslens:profile', profileStore);
+            rebuildProfile();
+        }
+
+        async function startSmart(announce) {
+            try {
+                await embedMissing(allPoolItems());
+                syncProfile();
+                if (announce) showStatus('✦ Smart Mode is ready: related dispatches are on' + (profileVec ? ', and "For You" is learning your taste.' : '. Read 3 dispatches and "For You" will start learning your taste.'));
+            } catch (e) {
+                smartOn = false; settings.smart = false; LS.set('newslens:settings', settings);
+                showStatus('⚠ Smart Mode could not load the language model. Check your connection and try again.');
+            }
+            updateSmartUI();
+            renderArticles();
+        }
+
+        function relatedHTML(a) {
+            const note = (t) => `<div class="mt-4 pt-3 border-t border-ink text-[11px] font-mono italic">${t}</div>`;
+            if (!smartOn) return note('Turn on ✦ Smart Mode (top of the page) to see related dispatches.');
+            const v = embCache[a.id];
+            if (!v) return note('Related dispatches are still being worked out. Open this one again in a moment.');
+            const rel = allPoolItems().filter(x => x.id !== a.id && embCache[x.id])
+                .map(x => ({ x, s: dot(v, embCache[x.id]) })).filter(r => r.s >= 0.30).sort((p, q) => q.s - p.s).slice(0, 3);
+            if (!rel.length) return note('No closely related dispatches in today\'s edition.');
+            return `<div class="mt-4 pt-3 border-t border-ink"><div class="font-mono text-[11px] font-bold uppercase mb-2">Related Dispatches</div>` +
+                rel.map(r => `<button onclick="readFullArticle(${r.x.id})" class="block w-full text-left p-2 mb-1.5 bg-parchment-card border border-ink hover:bg-parchment-dark"><span class="font-heading font-bold text-xs uppercase">${esc(r.x.title)}</span><span class="block font-mono text-[10px] text-ink-muted">${esc(r.x.topic)} • ${esc(r.x.source)} • similarity ${Math.round(r.s * 100)}%</span></button>`).join('') + `</div>`;
+        }
+
+        function updateSmartUI() {
+            const sb = document.getElementById('btn-smart'), fb = document.getElementById('btn-foryou');
+            sb.textContent = '✦ Smart Mode: ' + (smartOn ? 'On' : 'Off');
+            sb.className = 'retro-btn border border-ink px-3 py-1.5 text-xs font-bold font-mono uppercase ' + (smartOn ? 'bg-ink text-parchment' : 'bg-parchment-card');
+            const fy = smartOn && sortMode === 'foryou';
+            fb.textContent = 'For You: ' + (fy ? 'On' : 'Off');
+            fb.className = 'retro-btn border border-ink px-3 py-1.5 text-xs font-bold font-mono uppercase ' + (fy ? 'bg-ink text-parchment' : 'bg-parchment-card') + (smartOn ? '' : ' opacity-50');
+            updateStats();
+        }
+
+        async function toggleSmart() {
+            smartOn = !smartOn;
+            settings.smart = smartOn; LS.set('newslens:settings', settings);
+            if (!smartOn) { hideStatus(); updateSmartUI(); renderArticles(); return; }
+            updateSmartUI();
+            await startSmart(true);
+        }
+
+        function toggleForYou() {
+            if (!smartOn) { showStatus('✦ Turn on Smart Mode first so the page can learn what you like.'); return; }
+            sortMode = sortMode === 'foryou' ? 'section' : 'foryou';
+            LS.set('newslens:sort', sortMode);
+            updateSmartUI();
+            renderArticles();
+            if (sortMode === 'foryou' && !profileVec) showStatus('✦ Read at least 3 dispatches and "For You" will start ranking by your taste.');
+        }
+
+        /* =====================================================================
+           Woodcut illustrations
+           ===================================================================== */
+        function svgWrap(inner) {
+            return `<svg class="w-full h-36 woodcut-img border border-ink p-2 my-2 bg-parchment-dark" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Engraved illustration">${inner}</svg>`;
+        }
+        function getWoodcutSVG(type) {
+            switch (type) {
+                case 'chip': return svgWrap(`
+                        <rect x="50" y="20" width="100" height="80" fill="none" stroke="#1A1A1A" stroke-width="4"/>
+                        <rect x="70" y="40" width="60" height="40" fill="#1A1A1A"/>
+                        <path d="M20 40 h30 M20 60 h30 M20 80 h30 M150 40 h30 M150 60 h30 M150 80 h30 M70 10 v10 M100 10 v10 M130 10 v10 M70 100 v10 M100 100 v10 M130 100 v10" stroke="#1A1A1A" stroke-width="3"/>`);
+                case 'server': return svgWrap(`
+                        <rect x="60" y="15" width="80" height="90" fill="none" stroke="#1A1A1A" stroke-width="4"/>
+                        <line x1="60" y1="45" x2="140" y2="45" stroke="#1A1A1A" stroke-width="3"/>
+                        <line x1="60" y1="75" x2="140" y2="75" stroke="#1A1A1A" stroke-width="3"/>
+                        <circle cx="80" cy="30" r="5" fill="#1A1A1A"/><circle cx="100" cy="30" r="5" fill="#1A1A1A"/>
+                        <circle cx="80" cy="60" r="5" fill="#1A1A1A"/><circle cx="100" cy="60" r="5" fill="#1A1A1A"/>
+                        <circle cx="80" cy="90" r="5" fill="#1A1A1A"/><circle cx="100" cy="90" r="5" fill="#1A1A1A"/>`);
+                case 'capitol': return svgWrap(`
+                        <path d="M100 15 L40 50 H160 Z" fill="none" stroke="#1A1A1A" stroke-width="4"/>
+                        <rect x="50" y="50" width="100" height="55" fill="none" stroke="#1A1A1A" stroke-width="4"/>
+                        <line x1="70" y1="50" x2="70" y2="105" stroke="#1A1A1A" stroke-width="3"/>
+                        <line x1="90" y1="50" x2="90" y2="105" stroke="#1A1A1A" stroke-width="3"/>
+                        <line x1="110" y1="50" x2="110" y2="105" stroke="#1A1A1A" stroke-width="3"/>
+                        <line x1="130" y1="50" x2="130" y2="105" stroke="#1A1A1A" stroke-width="3"/>`);
+                case 'dna': return svgWrap(`
+                        <path d="M50 20 Q100 60 150 20 M50 100 Q100 60 150 100" fill="none" stroke="#1A1A1A" stroke-width="4"/>
+                        <path d="M50 60 Q100 20 150 60 M50 60 Q100 100 150 60" fill="none" stroke="#1A1A1A" stroke-width="3" stroke-dasharray="4,4"/>
+                        <line x1="70" y1="35" x2="70" y2="85" stroke="#1A1A1A" stroke-width="2"/>
+                        <line x1="100" y1="60" x2="100" y2="60" stroke="#1A1A1A" stroke-width="4"/>
+                        <line x1="130" y1="35" x2="130" y2="85" stroke="#1A1A1A" stroke-width="2"/>`);
+                case 'neural': return svgWrap(`
+                        <path d="M40 25 L100 20 M40 25 L100 60 M40 25 L100 100 M40 60 L100 20 M40 60 L100 60 M40 60 L100 100 M40 95 L100 20 M40 95 L100 60 M40 95 L100 100 M100 20 L160 40 M100 20 L160 80 M100 60 L160 40 M100 60 L160 80 M100 100 L160 40 M100 100 L160 80" stroke="#1A1A1A" stroke-width="2" fill="none"/>
+                        <g fill="#1A1A1A"><circle cx="100" cy="20" r="8"/><circle cx="100" cy="60" r="8"/><circle cx="100" cy="100" r="8"/></g>
+                        <g fill="#EADBB3" stroke="#1A1A1A" stroke-width="3"><circle cx="40" cy="25" r="8"/><circle cx="40" cy="60" r="8"/><circle cx="40" cy="95" r="8"/><circle cx="160" cy="40" r="8"/><circle cx="160" cy="80" r="8"/></g>`);
+                case 'briefcase': return svgWrap(`
+                        <rect x="45" y="42" width="110" height="60" fill="none" stroke="#1A1A1A" stroke-width="4"/>
+                        <path d="M78 42 V28 H122 V42" fill="none" stroke="#1A1A1A" stroke-width="4"/>
+                        <line x1="45" y1="68" x2="155" y2="68" stroke="#1A1A1A" stroke-width="3"/>
+                        <rect x="91" y="62" width="18" height="14" fill="#1A1A1A"/>`);
+                case 'press': return svgWrap(`
+                        <rect x="45" y="18" width="110" height="84" fill="none" stroke="#1A1A1A" stroke-width="4"/>
+                        <rect x="55" y="28" width="90" height="14" fill="#1A1A1A"/>
+                        <path d="M55 54 h40 M55 64 h40 M55 74 h40 M55 84 h40 M105 54 h40 M105 64 h40 M105 74 h40 M105 84 h40" stroke="#1A1A1A" stroke-width="3"/>`);
+                default: return svgWrap(`
+                        <circle cx="100" cy="60" r="40" fill="none" stroke="#1A1A1A" stroke-width="4"/>
+                        <ellipse cx="100" cy="60" rx="40" ry="15" fill="none" stroke="#1A1A1A" stroke-width="3"/>
+                        <line x1="100" y1="20" x2="100" y2="100" stroke="#1A1A1A" stroke-width="3"/>`);
+            }
+        }
+        function imageHTML(a) {
+            if (a.image) {
+                return `<div class="halftone my-2"><img src="${esc(a.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" class="old-photo w-full h-36 object-cover border border-ink" onerror="swapToWoodcut(this,'${esc(a.svgType)}')"></div>`;
+            }
+            return getWoodcutSVG(a.svgType);
+        }
+        function swapToWoodcut(img, type) { img.parentElement.outerHTML = getWoodcutSVG(type); }
+
+        /* =====================================================================
+           Rendering
+           ===================================================================== */
+        function isRead(a) { return !!readIds[a.id]; }
+
+        function renderPills() {
+            const wrap = document.getElementById('topic-pills');
+            if (activeTopic !== 'All' && !topicsList.some(t => t.active && t.name === activeTopic)) activeTopic = 'All';
+            const names = ['All'].concat(topicsList.filter(t => t.active).map(t => t.name));
+            wrap.innerHTML = '<span class="font-mono text-xs font-bold uppercase mr-1">Topic Section:</span>' + names.map(n =>
+                `<button data-topic="${esc(n)}" class="retro-btn px-3 py-1 text-xs font-bold font-mono uppercase border border-ink ${n === activeTopic ? 'bg-ink text-parchment' : 'bg-parchment text-ink'}">${n === 'All' ? 'All Topics' : esc(n)}</button>`
+            ).join('');
+        }
+
+        function renderLoading() {
+            document.getElementById('articles-container').innerHTML = `
+                <div class="col-span-full text-center py-16 border-r border-b border-ink">
+                    <h3 class="headline text-2xl mb-2">The Presses Are Running</h3>
+                    <p class="font-mono text-xs">Setting type for today's edition. One moment, please.</p>
+                </div>`;
+        }
+
+        function renderArticles() {
+            articles = buildArticles();
+            const container = document.getElementById('articles-container');
+            container.innerHTML = '';
+
+            const filtered = activeTopic === 'All' ? articles : articles.filter(a => a.topic === activeTopic);
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-12 border-r border-b border-ink">
+                        <h3 class="headline text-xl mb-2">No Dispatches Found</h3>
+                        <p class="font-mono text-xs">No dispatches match "${esc(activeTopic)}" yet. Press R to pull fresh wires, or pick another section.</p>
+                    </div>`;
+                updateStats();
+                return;
+            }
+
+            filtered.forEach((a, index) => {
+                const isLead = index === 0 && activeTopic === 'All';
+                const read = isRead(a);
+                const tone = getTone(a);
+                const card = document.createElement('article');
+                card.className = `border-r border-b border-ink p-5 flex flex-col justify-between transition-opacity ${isLead ? 'md:col-span-2 lg:col-span-2 bg-parchment-card/50' : ''} ${read ? 'opacity-80' : ''}`;
+
+                const leadText = isLead && !a.thin ? shorten([a.summary, a.fullText].filter(Boolean).join(' '), 700) : a.summary;
+
+                card.innerHTML = `
+                    <div>
+                        ${isLead ? '<div class="text-center font-heading italic font-bold text-sm tracking-widest mb-1">★ Lead Story ★</div>' : ''}
+                        <div class="flex justify-between items-center text-[11px] font-mono font-bold uppercase border-b border-ink pb-1 mb-2">
+                            <span>SECTION: ${esc(a.topic)}</span>
+                            <span>${a.stars ? 'MATCH ' + '★'.repeat(a.stars) + ' ' : ''}${read ? '✓ READ' : '● UNREAD'}</span>
+                        </div>
+
+                        <h2 class="headline ${isLead ? 'text-3xl sm:text-4xl' : 'text-xl'} mb-2 text-ink">${esc(a.title)}</h2>
+
+                        <h3 class="font-heading italic text-xs font-bold mb-3 text-ink-muted border-b border-dashed border-ink/50 pb-2">${esc(a.subtitle)}</h3>
+
+                        ${imageHTML(a)}
+
+                        <p class="${isLead ? 'dropcap lead-columns text-sm sm:text-base' : 'text-xs sm:text-sm'} leading-relaxed text-justify mb-4 text-ink font-body">${esc(leadText)}</p>
+                    </div>
+
+                    <div>
+                        ${settings.strictness === 'off' ? '' : `
+                        <div class="bg-ink text-parchment p-2.5 my-3 font-mono text-[11px] single-border-all">
+                            <div class="flex items-center justify-between font-bold border-b border-parchment/30 pb-1 mb-1">
+                                <span>TONE & BIAS NOTES</span>
+                                <span class="bg-parchment text-ink px-1 text-[10px]">${tone.fromModel ? 'ML MODEL' : 'AUTO-TAGGED'}</span>
+                            </div>
+                            <div class="tracking-wide"><strong>TONE:</strong> [${esc(tone.cat)}]${tone.conf != null ? ' ' + Math.round(tone.conf * 100) + '% sure' : ''}</div>
+                            <div class="text-[10px] text-parchment/80 italic mt-0.5">${esc(tone.desc)}</div>
+                            ${tone.flagged.length ? `<div class="text-[10px] text-parchment/80 mt-0.5">${tone.fromModel ? 'Words behind this label' : 'Loaded wording'}: ${tone.flagged.map(esc).join(', ')}</div>` : ''}
+                        </div>`}
+
+                        <div class="flex items-center justify-between gap-2 pt-2 border-t border-ink text-xs font-mono font-bold uppercase">
+                            <button onclick="readFullArticle(${a.id})" class="retro-btn bg-parchment border border-ink px-3 py-1.5 hover:bg-ink hover:text-parchment transition-colors">Read Dispatch ▶</button>
+                            <button onclick="toggleReadStatus(${a.id})" class="retro-btn ${read ? 'bg-ink text-parchment' : 'bg-parchment-dark text-ink'} border border-ink px-2.5 py-1.5 text-[11px]">${read ? 'Mark Unread' : 'Mark as Read'}</button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+
+            updateStats();
+        }
+
+        function toggleReadStatus(id) {
+            if (readIds[id]) delete readIds[id]; else readIds[id] = Date.now();
+            LS.set('newslens:read', readIds);
+            if (smartOn) syncProfile();
+            renderArticles();
+        }
+
+        function filterTopic(topic) {
+            activeTopic = topic;
+            renderPills();
+            renderArticles();
+        }
+
+        function readFullArticle(id) {
+            const a = articles.find(x => x.id === id) || allPoolItems().find(x => x.id === id);
+            if (!a) return;
+            if (!readIds[a.id]) readIds[a.id] = Date.now();
+            LS.set('newslens:read', readIds);
+            if (smartOn) syncProfile();
+            renderArticles();
+
+            const tone = getTone(a);
+            document.getElementById('modal-article-content').innerHTML = `
+                <div class="text-xs font-mono uppercase border-b border-ink pb-1 mb-3 pr-24">Section: ${esc(a.topic)} • Full Analysis Brief</div>
+                <h1 class="headline text-2xl sm:text-3xl mb-2">${esc(a.title)}</h1>
+                <p class="font-heading italic text-sm font-bold mb-4 text-ink-muted">${esc(a.subtitle)}</p>
+
+                ${imageHTML(a)}
+
+                ${settings.strictness === 'off' ? '' : `
+                <div class="my-4 bg-ink text-parchment p-3 font-mono text-xs">
+                    <span class="font-bold block border-b border-parchment/30 pb-1 mb-1">TONE & BIAS EVALUATION</span>
+                    <div>CLASSIFICATION: [${esc(tone.cat)}]${tone.conf != null ? ' (' + Math.round(tone.conf * 100) + '% confidence' + (tone.conf < 0.5 ? ', low' : '') + ')' : ''}</div>
+                    <div class="text-parchment/80 mt-1">${esc(tone.desc)}</div>
+                    ${tone.flagged.length ? `<div class="text-parchment/80 mt-1">${tone.fromModel ? 'Words behind this label' : 'Loaded wording'}: ${tone.flagged.map(esc).join(', ')}</div>` : ''}
+                </div>`}
+
+                <div class="font-body text-sm leading-relaxed text-justify space-y-3 my-4">
+                    <p class="font-bold">${esc(a.summary)}</p>
+                    ${a.fullText ? `<p>${esc(a.fullText)}</p>` : ''}
+                </div>
+
+                ${relatedHTML(a)}
+
+                <div class="mt-6 pt-4 border-t-2 border-double border-ink flex flex-wrap justify-between items-center gap-3 text-xs font-mono">
+                    <span class="italic">Source Feed: ${esc(a.source)}</span>
+                    <span class="flex gap-2">
+                        ${a.link ? `<a href="${esc(a.link)}" target="_blank" rel="noopener noreferrer" class="retro-btn bg-parchment border border-ink px-4 py-2 uppercase font-bold">Read Original ▶</a>` : ''}
+                        <button onclick="closeModal('article-modal')" class="retro-btn bg-ink text-parchment px-4 py-2 uppercase font-bold">Done Reading</button>
+                    </span>
+                </div>
+            `;
+            openModal('article-modal');
+        }
+
+        /* ---------- Reader stats, history, topics ---------- */
+        function updateStats() {
+            const readCount = articles.filter(isRead).length;
+            document.getElementById('stat-read-count').innerText = readCount;
+            document.getElementById('history-count-link').innerText = readCount;
+            document.getElementById('stat-topic-count').innerText = topicsList.filter(t => t.active).length;
+            document.getElementById('stat-lastrun').innerText = edition && edition.fetchedAt
+                ? new Date(edition.fetchedAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '--';
+            document.getElementById('stat-engine').innerText = toneModel
+                ? 'Trained' + (toneModel.meta && toneModel.meta.cv_macro_f1 ? ' (F1 ' + Number(toneModel.meta.cv_macro_f1).toFixed(2) + ')' : '') : 'Keyword rules';
+            document.getElementById('stat-smart').innerText = !smartOn ? 'Off' : (embedder ? 'On' : 'Loading...');
+            renderHistoryModal();
+            renderTopicsModal();
+        }
+
+        function renderHistoryModal() {
+            const container = document.getElementById('history-list-content');
+            const readArticles = articles.filter(isRead);
+            if (readArticles.length === 0) {
+                container.innerHTML = '<p class="italic text-ink-muted">No articles marked as read yet today.</p>';
+                return;
+            }
+            container.innerHTML = readArticles.map(a => `
+                <div class="p-2 bg-parchment-card border border-ink flex justify-between items-center">
+                    <div>
+                        <div class="font-bold uppercase text-[11px]">${esc(a.title)}</div>
+                        <div class="text-[10px] text-ink-muted">Topic: ${esc(a.topic)} • Tone: ${esc(getTone(a).cat)}</div>
+                    </div>
+                    <button onclick="toggleReadStatus(${a.id})" class="text-[10px] underline font-bold ml-2">Unread</button>
+                </div>
+            `).join('');
+        }
+
+        function renderTopicsModal() {
+            const container = document.getElementById('topics-checklist');
+            container.innerHTML = topicsList.map((t, idx) => `
+                <div class="flex items-center justify-between p-2 bg-parchment-card border border-ink">
+                    <label class="flex items-center space-x-2 cursor-pointer flex-grow">
+                        <input type="checkbox" ${t.active ? 'checked' : ''} onchange="toggleTopicActive(${idx})" class="accent-ink">
+                        <span class="font-bold">${esc(t.name)}</span>
+                    </label>
+                    ${t.custom ? `<button onclick="removeTopic(${idx})" class="text-[10px] underline font-bold ml-2">Remove</button>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function saveTopics() { LS.set('newslens:topics', topicsList); }
+
+        function toggleTopicActive(idx) {
+            topicsList[idx].active = !topicsList[idx].active;
+            saveTopics();
+            loadEdition(false);          // fetches only sections that have no dispatches yet
+        }
+
+        function addNewTopic() {
+            const input = document.getElementById('new-topic-input');
+            const val = input.value.trim().slice(0, 40);
+            if (!val) return;
+            if (topicsList.some(t => t.name.toLowerCase() === val.toLowerCase())) { input.value = ''; return; }
+            topicsList.push({ name: val, active: true, custom: true });
+            input.value = '';
+            saveTopics();
+            loadEdition(false);
+        }
+
+        function removeTopic(idx) {
+            const [gone] = topicsList.splice(idx, 1);
+            if (edition && gone) delete edition.pool[gone.name];
+            saveTopics();
+            renderPills();
+            renderArticles();
+        }
+
+        /* ---------- Settings ---------- */
+        function populateSettings() {
+            document.getElementById('set-time').value = settings.time;
+            document.getElementById('set-strict').value = settings.strictness;
+            document.getElementById('set-count').value = settings.perTopic;
+        }
+        function saveSettings() {
+            const n = parseInt(document.getElementById('set-count').value, 10);
+            settings.perTopic = Math.min(MAX_POOL, Math.max(1, isNaN(n) ? 3 : n));
+            settings.strictness = document.getElementById('set-strict').value;
+            settings.time = document.getElementById('set-time').value || '06:00';
+            LS.set('newslens:settings', settings);
+            toneCache.clear();
+            closeModal('settings-modal');
+            renderArticles();
+        }
+
+        /* ---------- Daily job ---------- */
+        function triggerDigestRefresh() { loadEdition(true); }
+
+        function showStatus(text) {
+            document.getElementById('status-alert').classList.remove('hidden');
+            document.getElementById('status-text').innerText = text;
+        }
+        function hideStatus() { document.getElementById('status-alert').classList.add('hidden'); }
+
+        /* ---------- Modals & keyboard ---------- */
+        function openModal(id) {
+            if (id === 'settings-modal') populateSettings();
+            document.getElementById(id).classList.remove('hidden');
+        }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                ['article-modal', 'topics-modal', 'history-modal', 'settings-modal'].forEach(closeModal);
+                return;
+            }
+            if (e.key === 'r' || e.key === 'R') {
+                const tag = document.activeElement && document.activeElement.tagName;
+                if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+                if (e.ctrlKey || e.metaKey || e.altKey) return;
+                triggerDigestRefresh();
+            }
+        });
+
+        /* ---------- Initialize on load ---------- */
+        window.onload = function () {
+            stampMasthead();
+            document.getElementById('topic-pills').addEventListener('click', (e) => {
+                const b = e.target.closest('[data-topic]');
+                if (b) filterTopic(b.dataset.topic);
+            });
+            renderPills();
+            rebuildProfile();
+            updateSmartUI();
+            loadToneModel().then(() => { if (articles.length) renderArticles(); });
+            loadEdition(false);          // same-day cache loads instantly; a new day fetches a new edition
+        };
+    </script>
+</body>
+</html>
